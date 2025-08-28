@@ -33,6 +33,18 @@ app.post('/markers', (req, res) => {
   res.json({ status: 'ok', marker: newMarker });
 });
 
+// --- DELETE: видалення маркера по координатах ---
+app.delete('/markers', (req, res) => {
+  const { lat, lng } = req.body;
+  if (!fs.existsSync(markersFile)) return res.json([]);
+
+  let markers = JSON.parse(fs.readFileSync(markersFile));
+  markers = markers.filter(m => !(m.lat === lat && m.lng === lng));
+
+  fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
+  res.json({ status: 'deleted', lat, lng });
+});
+
 // --- API для пошуку через Nominatim ---
 app.get('/search', async (req, res) => {
   const q = req.query.q;
