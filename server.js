@@ -33,14 +33,26 @@ app.post('/markers', (req, res) => {
   res.json({ status: 'ok', marker: newMarker });
 });
 
-// --- DELETE: видалення маркера по координатах ---
+// --- DELETE: видалення маркера тільки своїх ---
 app.delete('/markers', (req, res) => {
-  const { lat, lng } = req.body;
+  const { lat, lng, userId } = req.body;
   if (!fs.existsSync(markersFile)) return res.json([]);
 
   let markers = JSON.parse(fs.readFileSync(markersFile));
-  markers = markers.filter(m => !(m.lat === lat && m.lng === lng));
 
+  const marker = markers.find(m => m.lat === lat && m.lng === lng);
+
+  if (!marker) {
+    return res.json({ status: 'not_found' });
+  }
+
+  // 🔒 Перевіряємо, чи власник
+  if (marker.userId !== userId) {
+    return res.json({ status: 'forbidden' });
+  }
+
+  // Видаляємо
+  markers = markers.filter(m => !(m.lat === lat && m.lng === lng && m.userId === userId));
   fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
   res.json({ status: 'deleted', lat, lng });
 });
