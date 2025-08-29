@@ -44,6 +44,7 @@ button:hover { background:#1b5e20; }
 </div>
 
 <div id="markerForm">
+  <input type="text" id="username" placeholder="Enter your name">
   <input type="file" id="photo" accept="image/*" multiple>
   <textarea id="desc" placeholder="Enter description..."></textarea>
   <input type="text" id="phone" placeholder="Phone (optional)">
@@ -106,8 +107,8 @@ function openFullImageGallery(photoArray){
 }
 
 // --- Збереження маркера на сервері ---
-async function saveMarkerData(lat, lng, desc, phone, photos) {
-    const newMarker = { lat, lng, desc, phone, photos };
+async function saveMarkerData(lat, lng, desc, phone, photos, userId) {
+    const newMarker = { lat, lng, desc, phone, photos, userId };
     await fetch('/markers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +123,16 @@ async function loadMarkersFromServer() {
     saved.forEach(m => {
         const marker = L.marker([m.lat, m.lng], { draggable: true }).addTo(map);
 
+        // --- При перетягуванні оновлюємо координати на сервері ---
+        marker.on("dragend", async ()=>{
+            const pos = marker.getLatLng();
+            await fetch('/updateMarker', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: m.userId })
+            });
+        });
+
         let imagesHTML = '';
         if (m.photos && m.photos.length > 0) {
             imagesHTML = `<div style="position:relative; display:inline-block;">
@@ -135,6 +146,7 @@ async function loadMarkersFromServer() {
         const popupContent = `
         <div class="custom-popup">
           ${imagesHTML}
+          <div><b>User:</b> ${m.userId}</div>
           ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}
           ${m.phone ? `<div class="phone">Phone: ${m.phone}</div>` : ''}
           <div class="coords">Coords: ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
@@ -147,14 +159,25 @@ async function loadMarkersFromServer() {
 
 // --- Створення нового маркера ---
 function createDraggableMarker(){
+    const username = document.getElementById('username').value.trim();
     const desc = document.getElementById('desc').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const files = Array.from(document.getElementById('photo').files);
     const center = map.getCenter();
 
+    if(!username){ alert("Enter your name!"); return; }
     if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
 
     const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
+
+    marker.on("dragend", async ()=>{  
+        const pos = marker.getLatLng();
+        await fetch('/updateMarker', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: username })
+        });
+    });
 
     const promises = files.map(f => new Promise(res=>{
         const reader = new FileReader();
@@ -165,17 +188,13 @@ function createDraggableMarker(){
     Promise.all(promises).then(photoBase64=>{
         let imagesHTML = '';
         if(photoBase64.length>0){
-            imagesHTML = `<div style="position:relative; display:inline-block;">
-                <img src="${photoBase64[0]}" style="width:100%; max-height:150px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
-            if(photoBase64.length>1){
-                imagesHTML += `<div style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:14px;">+${photoBase64.length-1}</div>`;
-            }
-            imagesHTML += `</div>`;
+            imagesHTML = `<img src="${photoBase64[0]}" style="width:100%;max-height:150px;object-fit:cover;cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
         }
 
         const popupContent = `
         <div class="custom-popup">
           ${imagesHTML}
+          <div><b>User:</b> ${username}</div>
           ${desc ? `<div class="desc">${desc}</div>` : ''}
           ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
           <div class="coords">Coords: ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}</div>
@@ -186,7 +205,7 @@ function createDraggableMarker(){
         markers.push(marker);
 
         // Зберігаємо на сервері
-        saveMarkerData(center.lat, center.lng, desc, phone, photoBase64);
+        saveMarkerData(center.lat, center.lng, desc, phone, photoBase64, username);
     });
 
     closeForm();
@@ -195,17 +214,24 @@ function createDraggableMarker(){
 // --- Видалення маркера ---
 async function removeSelectedMarker() {
     if (!selectedMarker) { alert("Select a marker first!"); return; }
-    const pos = selectedMarker.getLatLng();
-    map.removeLayer(selectedMarker);
-    markers = markers.filter(m => m !== selectedMarker);
+    const username = prompt("Enter your name to confirm deletion:");
+    if (!username) return;
 
-    await fetch('/markers', {
+    const pos = selectedMarker.getLatLng();
+    const res = await fetch('/markers', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: pos.lat, lng: pos.lng })
+        body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: username })
     });
 
-    selectedMarker = null;
+    const result = await res.json();
+    if (result.status === 'deleted') {
+        map.removeLayer(selectedMarker);
+        markers = markers.filter(m => m !== selectedMarker);
+        selectedMarker = null;
+    } else {
+        alert("You can delete only your own marker!");
+    }
 }
 
 // --- Пошук ---
