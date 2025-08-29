@@ -2,16 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-
-// Підключаємо node-fetch
-const fetch = require('node-fetch'); // переконайся, що npm install node-fetch@2 зроблено
+const fetch = require('node-fetch'); // npm install node-fetch@2
 
 const app = express();
 const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // щоб HTML, CSS, JS, картинки були доступні
+app.use(express.static(__dirname));
 
 const markersFile = path.join(__dirname, 'markers.json');
 
@@ -33,7 +31,24 @@ app.post('/markers', (req, res) => {
   res.json({ status: 'ok', marker: newMarker });
 });
 
-// --- DELETE: видалення маркера тільки своїх ---
+// --- Оновлення позиції ---
+app.put('/updateMarker', (req, res) => {
+  const { lat, lng, userId } = req.body;
+  if (!fs.existsSync(markersFile)) return res.json([]);
+
+  let markers = JSON.parse(fs.readFileSync(markersFile));
+  let marker = markers.find(m => m.userId === userId);
+
+  if (!marker) return res.json({ status: 'not_found' });
+
+  marker.lat = lat;
+  marker.lng = lng;
+
+  fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
+  res.json({ status: 'updated', marker });
+});
+
+// --- Видалення маркера тільки своїх ---
 app.delete('/markers', (req, res) => {
   const { lat, lng, userId } = req.body;
   if (!fs.existsSync(markersFile)) return res.json([]);
@@ -42,16 +57,9 @@ app.delete('/markers', (req, res) => {
 
   const marker = markers.find(m => m.lat === lat && m.lng === lng);
 
-  if (!marker) {
-    return res.json({ status: 'not_found' });
-  }
+  if (!marker) return res.json({ status: 'not_found' });
+  if (marker.userId !== userId) return res.json({ status: 'forbidden' });
 
-  // 🔒 Перевіряємо, чи власник
-  if (marker.userId !== userId) {
-    return res.json({ status: 'forbidden' });
-  }
-
-  // Видаляємо
   markers = markers.filter(m => !(m.lat === lat && m.lng === lng && m.userId === userId));
   fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
   res.json({ status: 'deleted', lat, lng });
@@ -77,7 +85,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'hhh.html'));
 });
 
-// --- Маршрут для карти ---
 app.get('/dodatok.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'dodatok.html'));
 });
