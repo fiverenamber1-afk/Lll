@@ -44,7 +44,6 @@ button:hover { background:#1b5e20; }
 </div>
 
 <div id="markerForm">
-  <input type="text" id="username" placeholder="Enter your name">
   <input type="file" id="photo" accept="image/*" multiple>
   <textarea id="desc" placeholder="Enter description..."></textarea>
   <input type="text" id="phone" placeholder="Phone (optional)">
@@ -54,11 +53,24 @@ button:hover { background:#1b5e20; }
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+// -------------------  Ініціалізація карти -------------------
 const map = L.map('map').setView([50.4501, 30.5234], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
 
 let markers = [];
 let selectedMarker = null;
+let userToken = localStorage.getItem("userToken");
+
+// --- Отримання токена користувача ---
+async function initUserToken() {
+  if (!userToken) {
+    const res = await fetch("/getToken");
+    const data = await res.json();
+    userToken = data.token;
+    localStorage.setItem("userToken", userToken);
+  }
+}
+initUserToken();
 
 function openForm(){ document.getElementById('markerForm').style.display='flex'; }
 function closeForm(){ document.getElementById('markerForm').style.display='none'; }
@@ -107,8 +119,8 @@ function openFullImageGallery(photoArray){
 }
 
 // --- Збереження маркера на сервері ---
-async function saveMarkerData(lat, lng, desc, phone, photos, userId) {
-    const newMarker = { lat, lng, desc, phone, photos, userId };
+async function saveMarkerData(lat, lng, desc, phone, photos) {
+    const newMarker = { lat, lng, desc, phone, photos, userId: userToken };
     await fetch('/markers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,7 +135,7 @@ async function loadMarkersFromServer() {
     saved.forEach(m => {
         const marker = L.marker([m.lat, m.lng], { draggable: true }).addTo(map);
 
-        // --- При перетягуванні оновлюємо координати на сервері ---
+        // --- При перетягуванні оновлюємо координати ---
         marker.on("dragend", async ()=>{
             const pos = marker.getLatLng();
             await fetch('/updateMarker', {
@@ -159,13 +171,11 @@ async function loadMarkersFromServer() {
 
 // --- Створення нового маркера ---
 function createDraggableMarker(){
-    const username = document.getElementById('username').value.trim();
     const desc = document.getElementById('desc').value.trim();
     const phone = document.getElementById('phone').value.trim();
     const files = Array.from(document.getElementById('photo').files);
     const center = map.getCenter();
 
-    if(!username){ alert("Enter your name!"); return; }
     if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
 
     const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
@@ -175,7 +185,7 @@ function createDraggableMarker(){
         await fetch('/updateMarker', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: username })
+            body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: userToken })
         });
     });
 
@@ -194,7 +204,7 @@ function createDraggableMarker(){
         const popupContent = `
         <div class="custom-popup">
           ${imagesHTML}
-          <div><b>User:</b> ${username}</div>
+          <div><b>User:</b> ${userToken}</div>
           ${desc ? `<div class="desc">${desc}</div>` : ''}
           ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
           <div class="coords">Coords: ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}</div>
@@ -205,7 +215,7 @@ function createDraggableMarker(){
         markers.push(marker);
 
         // Зберігаємо на сервері
-        saveMarkerData(center.lat, center.lng, desc, phone, photoBase64, username);
+        saveMarkerData(center.lat, center.lng, desc, phone, photoBase64);
     });
 
     closeForm();
@@ -214,14 +224,12 @@ function createDraggableMarker(){
 // --- Видалення маркера ---
 async function removeSelectedMarker() {
     if (!selectedMarker) { alert("Select a marker first!"); return; }
-    const username = prompt("Enter your name to confirm deletion:");
-    if (!username) return;
 
     const pos = selectedMarker.getLatLng();
     const res = await fetch('/markers', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: username })
+        body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: userToken })
     });
 
     const result = await res.json();
