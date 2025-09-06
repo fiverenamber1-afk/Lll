@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const fetch = require('node-fetch'); // npm install node-fetch@2
+const { v4: uuidv4 } = require('uuid'); // npm install uuid
 
 const app = express();
 const PORT = 3000;
@@ -78,6 +79,12 @@ app.get('/search', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Search error' });
   }
+});
+
+// --- Видаємо унікальний токен користувачу ---
+app.get('/getToken', (req, res) => {
+  const token = uuidv4();
+  res.json({ token });
 });
 
 // --- Головна сторінка ---
