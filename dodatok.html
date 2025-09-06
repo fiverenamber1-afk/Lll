@@ -148,7 +148,7 @@ async function loadMarkersFromServer() {
   });
 }
 
-// --- Створення нового маркера ---
+// --- Створення нового маркера (спочатку рухається, потім фіксується) ---
 function createDraggableMarker(){
   const username = document.getElementById('username').value.trim();
   const desc = document.getElementById('desc').value.trim();
@@ -159,7 +159,7 @@ function createDraggableMarker(){
   if(!username){ alert("Enter your name!"); return; }
   if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
 
-  const marker = L.marker([center.lat, center.lng], { draggable:false }).addTo(map);
+  const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
 
   const promises = files.map(f => new Promise(res=>{
       const reader = new FileReader();
@@ -179,15 +179,30 @@ function createDraggableMarker(){
         <div><b>User:</b> ${username}</div>
         ${desc ? `<div class="desc">${desc}</div>` : ''}
         ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
-        <div class="coords">Coords: ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}</div>
+        <div class="coords">Drag marker to set position</div>
       </div>`;
 
       marker.bindPopup(popupContent);
       marker.on("click",()=>selectedMarker=marker);
       markers.push(marker);
 
-      // Зберігаємо на сервері
-      saveMarkerData(center.lat, center.lng, desc, phone, photoBase64, userId);
+      // коли користувач відпустить маркер
+      marker.on("dragend", async ()=>{
+          const pos = marker.getLatLng();
+          marker.dragging.disable(); // робимо нерухомим
+
+          const finalPopup = `
+          <div class="custom-popup">
+            ${imagesHTML}
+            <div><b>User:</b> ${username}</div>
+            ${desc ? `<div class="desc">${desc}</div>` : ''}
+            ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
+            <div class="coords">Coords: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</div>
+          </div>`;
+          marker.setPopupContent(finalPopup);
+
+          await saveMarkerData(pos.lat, pos.lng, desc, phone, photoBase64, userId);
+      });
   });
 
   closeForm();
