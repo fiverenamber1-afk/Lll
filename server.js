@@ -3,7 +3,6 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const fetch = require('node-fetch'); // npm install node-fetch@2
-const { v4: uuidv4 } = require('uuid'); // npm install uuid
 
 const app = express();
 const PORT = 3000;
@@ -30,23 +29,6 @@ app.post('/markers', (req, res) => {
   markers.push(newMarker);
   fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
   res.json({ status: 'ok', marker: newMarker });
-});
-
-// --- Оновлення позиції ---
-app.put('/updateMarker', (req, res) => {
-  const { lat, lng, userId } = req.body;
-  if (!fs.existsSync(markersFile)) return res.json([]);
-
-  let markers = JSON.parse(fs.readFileSync(markersFile));
-  let marker = markers.find(m => m.userId === userId);
-
-  if (!marker) return res.json({ status: 'not_found' });
-
-  marker.lat = lat;
-  marker.lng = lng;
-
-  fs.writeFileSync(markersFile, JSON.stringify(markers, null, 2));
-  res.json({ status: 'updated', marker });
 });
 
 // --- Видалення маркера тільки своїх ---
@@ -79,12 +61,6 @@ app.get('/search', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Search error' });
   }
-});
-
-// --- Видаємо унікальний токен користувачу ---
-app.get('/getToken', (req, res) => {
-  const token = uuidv4();
-  res.json({ token });
 });
 
 // --- Головна сторінка ---
