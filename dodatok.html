@@ -28,238 +28,211 @@ button:hover { background:#1b5e20; }
 </style>
 </head>
 <body>
-
 <div id="search-bar">
   <div id="search-wrapper">
      <img src="7.png" alt="Замок">
     <input id="search" type="search" placeholder="Enter city…" onkeydown="handleSearch(event)" />
   </div>
 </div>
-
 <div id="map-container"><div id="map"></div></div>
-
 <div id="menu">
   <button onclick="openForm()">Add Marker</button>
   <button onclick="removeSelectedMarker()">Remove Marker</button>
 </div>
-
 <div id="markerForm">
+  <input type="text" id="username" placeholder="Enter your name">
   <input type="file" id="photo" accept="image/*" multiple>
   <textarea id="desc" placeholder="Enter description..."></textarea>
   <input type="text" id="phone" placeholder="Phone (optional)">
   <button onclick="createDraggableMarker()">Next</button>
   <button onclick="closeForm()">Cancel</button>
 </div>
-
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-// -------------------  Ініціалізація карти -------------------
+// --- Генерація унікального userId ---
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = "user_" + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem("userId", userId);
+}
+
 const map = L.map('map').setView([50.4501, 30.5234], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
-
 let markers = [];
 let selectedMarker = null;
-let userToken = localStorage.getItem("userToken");
-
-// --- Отримання токена користувача ---
-async function initUserToken() {
-  if (!userToken) {
-    const res = await fetch("/getToken");
-    const data = await res.json();
-    userToken = data.token;
-    localStorage.setItem("userToken", userToken);
-  }
-}
-initUserToken();
 
 function openForm(){ document.getElementById('markerForm').style.display='flex'; }
 function closeForm(){ document.getElementById('markerForm').style.display='none'; }
 
 // --- Галерея фото ---
 function openFullImageGallery(photoArray){
-    const overlay = document.createElement('div');
-    overlay.id = 'galleryOverlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.background = 'rgba(0,0,0,0.9)';
-    overlay.style.display = 'flex';
-    overlay.style.flexDirection = 'column';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.overflowY = 'auto';
-    overlay.style.zIndex = '9999';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerText = '✖';
-    closeBtn.style.position = 'absolute';
-    closeBtn.style.top = '20px';
-    closeBtn.style.right = '20px';
-    closeBtn.style.fontSize = '24px';
-    closeBtn.style.color = '#fff';
-    closeBtn.style.background = 'transparent';
-    closeBtn.style.border = 'none';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.onclick = () => document.body.removeChild(overlay);
-    overlay.appendChild(closeBtn);
+  const overlay = document.createElement('div');
+  overlay.id = 'galleryOverlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.background = 'rgba(0,0,0,0.9)';
+  overlay.style.display = 'flex';
+  overlay.style.flexDirection = 'column';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.overflowY = 'auto';
+  overlay.style.zIndex = '9999';
 
-    photoArray.forEach(src=>{
-        const img = document.createElement('img');
-        img.src = src;
-        img.style.width = '90%';
-        img.style.maxHeight = '80vh';
-        img.style.objectFit = 'contain';
-        img.style.marginBottom = '10px';
-        overlay.appendChild(img);
-    });
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '✖';
+  closeBtn.style.position = 'absolute';
+  closeBtn.style.top = '20px';
+  closeBtn.style.right = '20px';
+  closeBtn.style.fontSize = '24px';
+  closeBtn.style.color = '#fff';
+  closeBtn.style.background = 'transparent';
+  closeBtn.style.border = 'none';
+  closeBtn.style.cursor = 'pointer';
+  closeBtn.onclick = () => document.body.removeChild(overlay);
+  overlay.appendChild(closeBtn);
 
-    document.body.appendChild(overlay);
+  photoArray.forEach(src=>{
+      const img = document.createElement('img');
+      img.src = src;
+      img.style.width = '90%';
+      img.style.maxHeight = '80vh';
+      img.style.objectFit = 'contain';
+      img.style.marginBottom = '10px';
+      overlay.appendChild(img);
+  });
+
+  document.body.appendChild(overlay);
 }
 
-// --- Збереження маркера на сервері ---
-async function saveMarkerData(lat, lng, desc, phone, photos) {
-    const newMarker = { lat, lng, desc, phone, photos, userId: userToken };
-    await fetch('/markers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newMarker)
-    });
+// --- Збереження маркера ---
+async function saveMarkerData(lat, lng, desc, phone, photos, userId) {
+  const newMarker = { lat, lng, desc, phone, photos, userId };
+  await fetch('/markers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newMarker)
+  });
 }
 
-// --- Завантаження маркерів з сервера ---
+// --- Завантаження маркерів ---
 async function loadMarkersFromServer() {
-    const res = await fetch('/markers');
-    const saved = await res.json();
-    saved.forEach(m => {
-        const marker = L.marker([m.lat, m.lng], { draggable: true }).addTo(map);
+  const res = await fetch('/markers');
+  const saved = await res.json();
+  saved.forEach(m => {
+    const marker = L.marker([m.lat, m.lng], { draggable:false }).addTo(map);
 
-        // --- При перетягуванні оновлюємо координати ---
-        marker.on("dragend", async ()=>{
-            const pos = marker.getLatLng();
-            await fetch('/updateMarker', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: m.userId })
-            });
-        });
-
-        let imagesHTML = '';
-        if (m.photos && m.photos.length > 0) {
-            imagesHTML = `<div style="position:relative; display:inline-block;">
-                <img src="${m.photos[0]}" style="width:100%; max-height:150px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(m.photos)})'>`;
-            if (m.photos.length > 1) {
-                imagesHTML += `<div style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:14px;">+${m.photos.length-1}</div>`;
-            }
-            imagesHTML += `</div>`;
+    let imagesHTML = '';
+    if (m.photos && m.photos.length > 0) {
+        imagesHTML = `<div style="position:relative; display:inline-block;">
+            <img src="${m.photos[0]}" style="width:100%; max-height:150px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(m.photos)})'>`;
+        if (m.photos.length > 1) {
+            imagesHTML += `<div style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:14px;">+${m.photos.length-1}</div>`;
         }
+        imagesHTML += `</div>`;
+    }
 
-        const popupContent = `
-        <div class="custom-popup">
-          ${imagesHTML}
-          <div><b>User:</b> ${m.userId}</div>
-          ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}
-          ${m.phone ? `<div class="phone">Phone: ${m.phone}</div>` : ''}
-          <div class="coords">Coords: ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
-        </div>`;
-        marker.bindPopup(popupContent);
-        marker.on("click", () => selectedMarker = marker);
-        markers.push(marker);
-    });
+    const popupContent = `
+    <div class="custom-popup">
+      ${imagesHTML}
+      <div><b>User:</b> ${m.userId}</div>
+      ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}
+      ${m.phone ? `<div class="phone">Phone: ${m.phone}</div>` : ''}
+      <div class="coords">Coords: ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>
+    </div>`;
+    marker.bindPopup(popupContent);
+    marker.on("click", () => selectedMarker = marker);
+    markers.push(marker);
+  });
 }
 
 // --- Створення нового маркера ---
 function createDraggableMarker(){
-    const desc = document.getElementById('desc').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    const files = Array.from(document.getElementById('photo').files);
-    const center = map.getCenter();
+  const username = document.getElementById('username').value.trim();
+  const desc = document.getElementById('desc').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const files = Array.from(document.getElementById('photo').files);
+  const center = map.getCenter();
 
-    if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
+  if(!username){ alert("Enter your name!"); return; }
+  if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
 
-    const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
+  const marker = L.marker([center.lat, center.lng], { draggable:false }).addTo(map);
 
-    marker.on("dragend", async ()=>{  
-        const pos = marker.getLatLng();
-        await fetch('/updateMarker', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: userToken })
-        });
-    });
+  const promises = files.map(f => new Promise(res=>{
+      const reader = new FileReader();
+      reader.onload=e=>res(e.target.result);
+      reader.readAsDataURL(f);
+  }));
 
-    const promises = files.map(f => new Promise(res=>{
-        const reader = new FileReader();
-        reader.onload=e=>res(e.target.result);
-        reader.readAsDataURL(f);
-    }));
+  Promise.all(promises).then(photoBase64=>{
+      let imagesHTML = '';
+      if(photoBase64.length>0){
+          imagesHTML = `<img src="${photoBase64[0]}" style="width:100%;max-height:150px;object-fit:cover;cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
+      }
 
-    Promise.all(promises).then(photoBase64=>{
-        let imagesHTML = '';
-        if(photoBase64.length>0){
-            imagesHTML = `<img src="${photoBase64[0]}" style="width:100%;max-height:150px;object-fit:cover;cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
-        }
+      const popupContent = `
+      <div class="custom-popup">
+        ${imagesHTML}
+        <div><b>User:</b> ${username}</div>
+        ${desc ? `<div class="desc">${desc}</div>` : ''}
+        ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
+        <div class="coords">Coords: ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}</div>
+      </div>`;
 
-        const popupContent = `
-        <div class="custom-popup">
-          ${imagesHTML}
-          <div><b>User:</b> ${userToken}</div>
-          ${desc ? `<div class="desc">${desc}</div>` : ''}
-          ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
-          <div class="coords">Coords: ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}</div>
-        </div>`;
+      marker.bindPopup(popupContent);
+      marker.on("click",()=>selectedMarker=marker);
+      markers.push(marker);
 
-        marker.bindPopup(popupContent);
-        marker.on("click",()=>selectedMarker=marker);
-        markers.push(marker);
+      // Зберігаємо на сервері
+      saveMarkerData(center.lat, center.lng, desc, phone, photoBase64, userId);
+  });
 
-        // Зберігаємо на сервері
-        saveMarkerData(center.lat, center.lng, desc, phone, photoBase64);
-    });
-
-    closeForm();
+  closeForm();
 }
 
 // --- Видалення маркера ---
 async function removeSelectedMarker() {
-    if (!selectedMarker) { alert("Select a marker first!"); return; }
+  if (!selectedMarker) { alert("Select a marker first!"); return; }
+  const pos = selectedMarker.getLatLng();
+  const res = await fetch('/markers', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId })
+  });
 
-    const pos = selectedMarker.getLatLng();
-    const res = await fetch('/markers', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId: userToken })
-    });
-
-    const result = await res.json();
-    if (result.status === 'deleted') {
-        map.removeLayer(selectedMarker);
-        markers = markers.filter(m => m !== selectedMarker);
-        selectedMarker = null;
-    } else {
-        alert("You can delete only your own marker!");
-    }
+  const result = await res.json();
+  if (result.status === 'deleted') {
+      map.removeLayer(selectedMarker);
+      markers = markers.filter(m => m !== selectedMarker);
+      selectedMarker = null;
+  } else if (result.status === 'forbidden') {
+      alert("❌ Ви не можете видалити не свій маркер!");
+  } else {
+      alert("Маркер не знайдено.");
+  }
 }
 
 // --- Пошук ---
 async function handleSearch(e){
-    if(e.key !== "Enter") return;
-    const q = document.getElementById('search').value.trim();
-    if(!q) return;
-    try {
-        const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        if (data.length > 0) {
-            const { lat, lon } = data[0];
-            map.setView([parseFloat(lat), parseFloat(lon)], 12);
-        } else {
-            alert("Place not found!");
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Search error.");
+  if(e.key !== "Enter") return;
+  const q = document.getElementById('search').value.trim();
+  if(!q) return;
+  try {
+    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (data.length > 0) {
+      const { lat, lon } = data[0];
+      map.setView([parseFloat(lat), parseFloat(lon)], 12);
+    } else {
+      alert("Place not found!");
     }
+  } catch (err) {
+    console.error(err);
+    alert("Search error.");
+  }
 }
 
 // --- Завантаження маркерів при старті ---
