@@ -1,21 +1,29 @@
-<!DOCTYPE html>  
-<html lang="en">  
-<head>  
-<meta charset="UTF-8" />  
-<title>Local Map with Search</title>  
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />  
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />  
-<style>  
-body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; background:#f0f0f0; }  
-#map-container { height:100%; }  
-#map { width:100%; height:100%; z-index:0; }  
-#search-bar { position:fixed; top:10px; width:100%; display:flex; justify-content:center; z-index:1000; pointer-events:none; }  
-#search-wrapper { position:relative; width:82%; max-width:500px; margin-left:60px; pointer-events:auto; }  
-#search-wrapper img { position:absolute; top:50%; left:12px; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; }  
-#search { width:100%; padding:12px 18px 12px 56px; border:1px solid #1b5e20; border-radius:9999px; background:#e8f5e9; color:#1b5e20; font-size:16px; outline:none; }  
-#search::placeholder { color:#66bb6a; }  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Local Map with Search</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; background:#f0f0f0; }
+#map-container { height:100%; }
+#map { width:100%; height:100%; z-index:0; }
 
-/* Нижнє меню */  
+/* Пошук */
+#search-bar { position:fixed; top:10px; width:100%; display:flex; justify-content:center; z-index:1000; pointer-events:none; }
+#search-wrapper { position:relative; width:82%; max-width:500px; margin-left:60px; pointer-events:auto; }
+#search-wrapper img.lock { position:absolute; top:50%; left:12px; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; }
+#search { width:100%; padding:12px 56px 12px 56px; border:1px solid #1b5e20; border-radius:9999px; background:#e8f5e9; color:#1b5e20; font-size:16px; outline:none; }
+#search::placeholder { color:#66bb6a; }
+/* Шестерня праворуч у полі пошуку */
+#settings-gear {
+  position:absolute; top:50%; right:12px; transform:translateY(-50%);
+  width:28px; height:28px; cursor:pointer; opacity:0.9;
+}
+#settings-gear:hover { opacity:1; transform:translateY(-50%) rotate(30deg); transition:0.2s ease; }
+
+/* Нижнє меню */
 #menu {
   position: fixed;
   bottom: 0;
@@ -28,314 +36,408 @@ body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; bac
   gap: 10px;
   z-index: 1000;
 }
-#menu .top-buttons {
-  display: flex;
-  gap: 20px;
-}
-#menu .bottom-button {
-  width: 100%;
-}
+#menu .top-buttons { display: flex; gap: 20px; }
+#menu .bottom-button { width: 100%; }
 #menu .full-width {
   width: 100%;
   padding: 12px 0;
   border-radius: 8px;
   background: #388e3c;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: bold;
+  color: #fff; border: none; cursor: pointer;
+  font-size: 16px; font-weight: bold;
 }
-#menu .full-width:hover {
-  background: #1b5e20;
-}
+#menu .full-width:hover { background: #1b5e20; }
 
-button { padding:12px 30px; border-radius:8px; background:#388e3c; color:#fff; border:none; cursor:pointer; font-size:16px; font-weight:bold; }  
-button:hover { background:#1b5e20; }  
-#markerForm { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#e8f5e9; padding:20px; border-radius:10px; display:none; flex-direction:column; gap:12px; width:300px; z-index:2000; color:#1b5e20; font-weight:bold; }  
-#markerForm input, #markerForm textarea { width:100%; padding:10px; border:none; border-radius:6px; background:#c8e6c9; color:#1b5e20; }  
-#markerForm button { padding:10px; border-radius:6px; border:none; background:#388e3c; color:#fff; cursor:pointer; }  
-#markerForm button:hover { background:#1b5e20; }  
-.custom-popup img { max-width:100%; margin-bottom:5px; border-radius:6px; cursor:pointer; }  
-.custom-popup .desc { font-weight:bold; margin-bottom:4px; }  
-.custom-popup .phone { color:#2e7d32; margin-bottom:4px; }  
-.custom-popup .coords { font-size:12px; color:#555; }  
+button { padding:12px 30px; border-radius:8px; background:#388e3c; color:#fff; border:none; cursor:pointer; font-size:16px; font-weight:bold; }
+button:hover { background:#1b5e20; }
 
-/* Список моїх маркерів */  
+#markerForm { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#e8f5e9; padding:20px; border-radius:10px; display:none; flex-direction:column; gap:12px; width:300px; z-index:2000; color:#1b5e20; font-weight:bold; }
+#markerForm input, #markerForm textarea { width:100%; padding:10px; border:none; border-radius:6px; background:#c8e6c9; color:#1b5e20; }
+#markerForm button { padding:10px; border-radius:6px; border:none; background:#388e3c; color:#fff; cursor:pointer; }
+#markerForm button:hover { background:#1b5e20; }
+
+.custom-popup img { max-width:100%; margin-bottom:5px; border-radius:6px; cursor:pointer; }
+.custom-popup .desc { font-weight:bold; margin-bottom:4px; }
+.custom-popup .phone { color:#2e7d32; margin-bottom:4px; }
+.custom-popup .coords { font-size:12px; color:#555; }
+
+/* Список моїх маркерів */
 #myMarkersMenu {
-  position: fixed;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background:#e8f5e9;
-  padding:20px;
-  border-radius:10px;
-  display:none;
-  flex-direction:column;
-  gap:12px;
-  width:320px;
-  max-height:400px;
-  overflow-y:auto;
-  z-index:3000;
-  color:#1b5e20;
-  font-weight:bold;
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background:#e8f5e9; padding:20px; border-radius:10px;
+  display:none; flex-direction:column; gap:12px; width:320px; max-height:400px; overflow-y:auto; z-index:3000; color:#1b5e20; font-weight:bold;
 }
 #myMarkersList button {
-  width:100%;
-  margin-bottom:8px;
-  padding:10px;
-  border:none;
-  border-radius:6px;
-  background:#c8e6c9;
-  color:#1b5e20;
-  cursor:pointer;
-  text-align:left;
+  width:100%; margin-bottom:8px; padding:10px; border:none; border-radius:6px;
+  background:#c8e6c9; color:#1b5e20; cursor:pointer; text-align:left;
 }
-#myMarkersList button:hover {
-  background:#a5d6a7;
+#myMarkersList button:hover { background:#a5d6a7; }
+
+/* Повноекранне вікно налаштувань/фільтрів */
+#settingsOverlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.6);
+  display:none; align-items:flex-start; justify-content:center; z-index:4000;
 }
-</style>  
-</head>  
-<body>  
-<div id="search-bar">  
-  <div id="search-wrapper">  
-     <img src="7.png" alt="Замок">  
-    <input id="search" type="search" placeholder="Enter city…" onkeydown="handleSearch(event)" />  
-  </div>  
-</div>  
-<div id="map-container"><div id="map"></div></div>  
+#settingsPanel {
+  margin-top:5vh; width:min(920px, 92%); background:#e8f5e9; color:#1b5e20;
+  border-radius:12px; padding:16px 16px 20px; max-height:90vh; overflow:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,0.25);
+}
+.settings-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.settings-title { font-weight:800; font-size:20px; }
+.settings-close { background:#388e3c; border:none; color:#fff; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.settings-close:hover { background:#1b5e20; }
 
-<div id="menu">  
-  <div class="top-buttons">
-    <button onclick="openForm()">Add Marker</button>  
-    <button onclick="removeSelectedMarker()">Remove Marker</button>  
+.settings-search-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.settings-search-row input {
+  flex:1; min-width:200px; padding:10px 12px; border:none; border-radius:10px; background:#c8e6c9; color:#1b5e20;
+}
+.settings-search-row button { padding:10px 16px; border-radius:10px; }
+
+#filtersBar { display:flex; align-items:center; gap:10px; margin:8px 0 12px; }
+#filtersToggle { background:#388e3c; }
+#filtersArea { display:none; padding:12px; background:#dcedc8; border-radius:10px; }
+.filter-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.filter-grid input, .filter-grid select {
+  width:100%; padding:10px; border:none; border-radius:10px; background:#c8e6c9; color:#1b5e20;
+}
+
+/* категорії речей */
+#itemsWrap { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.item-chip {
+  padding:8px 12px; border-radius:999px; background:#c8e6c9; color:#1b5e20; cursor:pointer; font-weight:bold; border:1px solid #a5d6a7;
+}
+.item-chip.active { background:#66bb6a; border-color:#1b5e20; }
+
+/* результати фільтру */
+#resultsBox {
+  margin-top:12px; background:#fff; border-radius:12px; padding:10px; max-height:300px; overflow:auto; border:1px solid #c8e6c9;
+}
+.result-row {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:8px 6px; border-bottom:1px dashed #c8e6c9;
+}
+.result-row:last-child { border-bottom:none; }
+.result-row button { padding:6px 10px; border-radius:8px; }
+.badge { font-size:12px; background:#dcedc8; padding:4px 8px; border-radius:999px; }
+</style>
+</head>
+<body>
+  <div id="search-bar">
+    <div id="search-wrapper">
+      <img class="lock" src="7.png" alt="Замок">
+      <input id="search" type="search" placeholder="Enter city…" onkeydown="handleSearch(event)" />
+      <!-- Шестерня праворуч у полі -->
+      <img id="settings-gear" src="gear.png" alt="Налаштування" title="Налаштування" onclick="openSettings()" />
+    </div>
   </div>
-  <div class="bottom-button">
-    <button class="full-width" onclick="openMyMarkers()">My Markers</button>  
+
+  <div id="map-container"><div id="map"></div></div>
+
+  <div id="menu">
+    <div class="top-buttons">
+      <button onclick="openForm()">Add Marker</button>
+      <button onclick="removeSelectedMarker()">Remove Marker</button>
+    </div>
+    <div class="bottom-button">
+      <button class="full-width" onclick="openMyMarkers()">My Markers</button>
+    </div>
   </div>
-</div>  
 
-<div id="markerForm">  
-  <input type="text" id="username" placeholder="Enter your name">  
-  <input type="file" id="photo" accept="image/*" multiple>  
-  <textarea id="desc" placeholder="Enter description..."></textarea>  
-  <input type="text" id="phone" placeholder="Phone (optional)">  
-  <button onclick="createDraggableMarker()">Next</button>  
-  <button onclick="closeForm()">Cancel</button>  
-</div>  
+  <div id="markerForm">
+    <input type="text" id="username" placeholder="Enter your name">
+    <input type="file" id="photo" accept="image/*" multiple>
+    <textarea id="desc" placeholder="Enter description..."></textarea>
+    <input type="text" id="phone" placeholder="Phone (optional)">
+    <!-- Нове поле для хештегів речей -->
+    <input type="text" id="itemTag" placeholder="#велосипед #телефон (речі)">
+    <button onclick="createDraggableMarker()">Next</button>
+    <button onclick="closeForm()">Cancel</button>
+  </div>
 
-<!-- Вікно "My Markers" -->  
-<div id="myMarkersMenu">  
-  <h3>My Markers</h3>  
-  <div id="myMarkersList"></div>  
-  <button onclick="closeMyMarkers()">Close</button>  
-</div>  
+  <!-- Вікно "My Markers" -->
+  <div id="myMarkersMenu">
+    <h3>My Markers</h3>
+    <div id="myMarkersList"></div>
+    <button onclick="closeMyMarkers()">Close</button>
+  </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>  
-<script>  
-// --- Генерація унікального userId ---  
-let userId = localStorage.getItem("userId");  
-if (!userId) {  
-  userId = "user_" + Math.random().toString(36).substr(2, 9);  
-  localStorage.setItem("userId", userId);  
-}  
+  <!-- Повноекранне вікно налаштувань/фільтрів -->
+  <div id="settingsOverlay">
+    <div id="settingsPanel">
+      <div class="settings-header">
+        <div class="settings-title">Пошук і фільтри</div>
+        <button class="settings-close" onclick="closeSettings()">Закрити</button>
+      </div>
+
+      <!-- «Сама пошукова система» у вікні -->
+      <div class="settings-search-row">
+        <input id="modalCountry" type="text" placeholder="Країна (введіть вручну)">
+        <input id="modalCity" type="text" placeholder="Місто (введіть вручну)">
+        <input id="modalDistrict" type="text" placeholder="Район у місті (необов'язково)">
+        <button onclick="locateArea()">Знайти</button>
+      </div>
+
+      <div id="filtersBar">
+        <button id="filtersToggle" onclick="toggleFilters()">Фільтри</button>
+        <span class="badge" id="areaBadge" style="display:none;"></span>
+      </div>
+
+      <div id="filtersArea">
+        <div><b>Оберіть речі</b></div>
+        <div id="itemsWrap"></div>
+      </div>
+
+      <div id="resultsBox" aria-live="polite">
+        <div>Результати з’являться тут після вибору області й речей.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+/* --- Генерація унікального userId --- */
+let userId = localStorage.getItem("userId");
+if (!userId) {
+  userId = "user_" + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem("userId", userId);
+}
 
 const map = L.map('map').setView([50.4501, 30.5234], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19 }).addTo(map);
 let markers = [];
 let selectedMarker = null;
 
+/* --- Відкриття/закриття форм --- */
 function openForm(){ document.getElementById('markerForm').style.display='flex'; }
 function closeForm(){ document.getElementById('markerForm').style.display='none'; }
 
-// --- Галерея фото ---
+function openSettings(){ document.getElementById('settingsOverlay').style.display='flex'; }
+function closeSettings(){ document.getElementById('settingsOverlay').style.display='none'; }
+function toggleFilters(){
+  const area = document.getElementById('filtersArea');
+  area.style.display = (area.style.display === 'none' || area.style.display === '') ? 'block' : 'none';
+}
+
+/* --- Категорії речей (можна розширювати) --- */
+const ITEM_PRESETS = [
+  '#телефон','#смартфон','#телевізор','#ноутбук','#пк','#монітор','#планшет',
+  '#одяг','#взуття','#іграшки','#книги','#велосипед','#самокат','#скейт',
+  '#холодильник','#пральна','#мікрохвильова','#диван','#крісло','#кровать','#стіл','#шафа',
+  '#інструменти','#дитячі','#посуд','#спортивне','#музичні','#гаджети'
+];
+
+function renderItemChips(){
+  const wrap = document.getElementById('itemsWrap');
+  wrap.innerHTML = '';
+  ITEM_PRESETS.forEach(tag=>{
+    const chip = document.createElement('div');
+    chip.className = 'item-chip';
+    chip.textContent = tag;
+    chip.onclick = () => {
+      chip.classList.toggle('active');
+      runFilterIfReady();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+/* --- Галерея фото --- */
 function openFullImageGallery(photoArray){
-const overlay = document.createElement('div');
-overlay.id = 'galleryOverlay';
-overlay.style.position = 'fixed';
-overlay.style.top = '0';
-overlay.style.left = '0';
-overlay.style.width = '100%';
-overlay.style.height = '100%';
-overlay.style.background = 'rgba(0,0,0,0.9)';
-overlay.style.display = 'flex';
-overlay.style.flexDirection = 'column';
-overlay.style.alignItems = 'center';
-overlay.style.justifyContent = 'center';
-overlay.style.overflowY = 'auto';
-overlay.style.zIndex = '9999';
+  const overlay = document.createElement('div');
+  overlay.id = 'galleryOverlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100%';
+  overlay.style.height = '100%';
+  overlay.style.background = 'rgba(0,0,0,0.9)';
+  overlay.style.display = 'flex';
+  overlay.style.flexDirection = 'column';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.overflowY = 'auto';
+  overlay.style.zIndex = '9999';
 
-const closeBtn = document.createElement('button');
-closeBtn.innerText = '✖';
-closeBtn.style.position = 'absolute';
-closeBtn.style.top = '20px';
-closeBtn.style.right = '20px';
-closeBtn.style.fontSize = '24px';
-closeBtn.style.color = '#fff';
-closeBtn.style.background = 'transparent';
-closeBtn.style.border = 'none';
-closeBtn.style.cursor = 'pointer';
-closeBtn.onclick = () => document.body.removeChild(overlay);
-overlay.appendChild(closeBtn);
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '✖';
+  closeBtn.style.position = 'absolute';
+  closeBtn.style.top = '20px';
+  closeBtn.style.right = '20px';
+  closeBtn.style.fontSize = '24px';
+  closeBtn.style.color = '#fff';
+  closeBtn.style.background = 'transparent';
+  closeBtn.style.border = 'none';
+  closeBtn.style.cursor = 'pointer';
+  closeBtn.onclick = () => document.body.removeChild(overlay);
+  overlay.appendChild(closeBtn);
 
-photoArray.forEach(src=>{
-const img = document.createElement('img');
-img.src = src;
-img.style.width = '90%';
-img.style.maxHeight = '80vh';
-img.style.objectFit = 'contain';
-img.style.marginBottom = '10px';
-overlay.appendChild(img);
-});
-
-document.body.appendChild(overlay);
-}
-
-// --- Збереження маркера ---
-async function saveMarkerData(lat, lng, desc, phone, photos, userId) {
-const newMarker = { lat, lng, desc, phone, photos, userId };
-await fetch('/markers', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(newMarker)
-});
-}
-
-// --- Завантаження маркерів ---
-async function loadMarkersFromServer() {
-const res = await fetch('/markers');
-const saved = await res.json();
-saved.forEach(m => {
-const marker = L.marker([m.lat, m.lng], { draggable:false }).addTo(map);
-
-let imagesHTML = '';  
-if (m.photos && m.photos.length > 0) {  
-    imagesHTML = `<div style="position:relative; display:inline-block;">  
-        <img src="${m.photos[0]}" style="width:100%; max-height:150px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(m.photos)})'>`;  
-    if (m.photos.length > 1) {  
-        imagesHTML += `<div style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:14px;">+${m.photos.length-1}</div>`;  
-    }  
-    imagesHTML += `</div>`;  
-}  
-
-const popupContent = `  
-<div class="custom-popup">  
-  ${imagesHTML}  
-  <div><b>User:</b> ${m.userId}</div>  
-  ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}  
-  ${m.phone ? `<div class="phone">Phone: ${m.phone}</div>` : ''}  
-  <div class="coords">Coords: ${m.lat.toFixed(5)}, ${m.lng.toFixed(5)}</div>  
-</div>`;  
-marker.bindPopup(popupContent);  
-marker.on("click", () => selectedMarker = marker);  
-markers.push(marker);
-
-});
-}
-
-// --- Створення нового маркера (спочатку рухається, потім фіксується) ---
-function createDraggableMarker(){
-const username = document.getElementById('username').value.trim();
-const desc = document.getElementById('desc').value.trim();
-const phone = document.getElementById('phone').value.trim();
-const files = Array.from(document.getElementById('photo').files);
-const center = map.getCenter();
-
-if(!username){ alert("Enter your name!"); return; }
-if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
-
-const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
-
-const promises = files.map(f => new Promise(res=>{
-const reader = new FileReader();
-reader.onload=e=>res(e.target.result);
-reader.readAsDataURL(f);
-}));
-
-Promise.all(promises).then(photoBase64=>{
-let imagesHTML = '';
-if(photoBase64.length>0){
-imagesHTML = `<img src="${photoBase64[0]}" style="width:100%;max-height:150px;object-fit:cover;cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
-}
-
-const popupContent = `  
-  <div class="custom-popup">  
-    ${imagesHTML}  
-    <div><b>User:</b> ${username}</div>  
-    ${desc ? `<div class="desc">${desc}</div>` : ''}  
-    ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}  
-    <div class="coords">Drag marker to set position</div>  
-  </div>`;  
-
-  marker.bindPopup(popupContent);  
-  marker.on("click",()=>selectedMarker=marker);  
-  markers.push(marker);  
-
-  // коли користувач відпустить маркер  
-  marker.on("dragend", async ()=>{  
-      const pos = marker.getLatLng();  
-      marker.dragging.disable(); // робимо нерухомим  
-
-      const finalPopup = `  
-      <div class="custom-popup">  
-        ${imagesHTML}  
-        <div><b>User:</b> ${username}</div>  
-        ${desc ? `<div class="desc">${desc}</div>` : ''}  
-        ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}  
-        <div class="coords">Coords: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</div>  
-      </div>`;  
-      marker.setPopupContent(finalPopup);  
-
-      await saveMarkerData(pos.lat, pos.lng, desc, phone, photoBase64, userId);  
+  photoArray.forEach(src=>{
+    const img = document.createElement('img');
+    img.src = src;
+    img.style.width = '90%';
+    img.style.maxHeight = '80vh';
+    img.style.objectFit = 'contain';
+    img.style.marginBottom = '10px';
+    overlay.appendChild(img);
   });
 
-});
-
-closeForm();
+  document.body.appendChild(overlay);
 }
 
-// --- Видалення маркера ---
+/* --- Збереження маркера --- */
+async function saveMarkerData(lat, lng, desc, phone, photos, userId, tags) {
+  const newMarker = { lat, lng, desc, phone, photos, userId, tags };
+  await fetch('/markers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newMarker)
+  });
+}
+
+/* --- Завантаження маркерів --- */
+async function loadMarkersFromServer() {
+  const res = await fetch('/markers');
+  const saved = await res.json();
+  saved.forEach(m => {
+    const marker = L.marker([m.lat, m.lng], { draggable:false }).addTo(map);
+
+    let imagesHTML = '';
+    if (m.photos && m.photos.length > 0) {
+      imagesHTML = `
+        <div style="position:relative; display:inline-block;">
+          <img src="${m.photos[0]}" style="width:100%; max-height:150px; object-fit:cover; border-radius:6px; cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(m.photos)})'>
+          ${m.photos.length > 1 ? `<div style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:14px;">+${m.photos.length-1}</div>` : ``}
+        </div>`;
+    }
+
+    const tagsLine = (m.tags && m.tags.length) ? `<div class="coords">Теги: ${m.tags.join(' ')}</div>` : '';
+
+    const popupContent = `
+      <div class="custom-popup">
+        ${imagesHTML}
+        <div><b>User:</b> ${m.userId}</div>
+        ${m.desc ? `<div class="desc">${m.desc}</div>` : ''}
+        ${m.phone ? `<div class="phone">Phone: ${m.phone}</div>` : ''}
+        ${tagsLine}
+        <div class="coords">Coords: ${parseFloat(m.lat).toFixed(5)}, ${parseFloat(m.lng).toFixed(5)}</div>
+      </div>`;
+    marker.bindPopup(popupContent);
+    marker.on("click", () => selectedMarker = marker);
+    markers.push({leaflet: marker, data: m});
+  });
+}
+
+/* --- Створення нового маркера (спочатку рухається, потім фіксується) --- */
+function createDraggableMarker(){
+  const username = document.getElementById('username').value.trim();
+  const desc = document.getElementById('desc').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const tagInput = document.getElementById('itemTag').value.trim();
+  const files = Array.from(document.getElementById('photo').files);
+  const center = map.getCenter();
+
+  if(!username){ alert("Enter your name!"); return; }
+  if(!desc && files.length===0){ alert("Please enter description or upload photos."); return; }
+
+  // обробка тегів (#велосипед #телефон ...)
+  const tags = tagInput
+    ? tagInput.split(/[,\s]+/).filter(Boolean).map(t => t.startsWith('#') ? t.toLowerCase() : ('#'+t.toLowerCase()))
+    : [];
+
+  const marker = L.marker([center.lat, center.lng], { draggable:true }).addTo(map);
+
+  const promises = files.map(f => new Promise(res=>{
+    const reader = new FileReader();
+    reader.onload=e=>res(e.target.result);
+    reader.readAsDataURL(f);
+  }));
+
+  Promise.all(promises).then(photoBase64=>{
+    let imagesHTML = '';
+    if(photoBase64.length>0){
+      imagesHTML = `<img src="${photoBase64[0]}" style="width:100%;max-height:150px;object-fit:cover;cursor:pointer;" onclick='openFullImageGallery(${JSON.stringify(photoBase64)})'>`;
+    }
+
+    const popupContent = `
+      <div class="custom-popup">
+        ${imagesHTML}
+        <div><b>User:</b> ${username}</div>
+        ${desc ? `<div class="desc">${desc}</div>` : ''}
+        ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
+        ${tags.length ? `<div class="coords">Теги: ${tags.join(' ')}</div>` : ``}
+        <div class="coords">Drag marker to set position</div>
+      </div>`;
+    marker.bindPopup(popupContent);
+    marker.on("click",()=>selectedMarker=marker);
+    markers.push({leaflet: marker, data: {lat:center.lat, lng:center.lng, desc, phone, photos:photoBase64, userId, tags}});
+
+    // коли користувач відпустить маркер
+    marker.on("dragend", async ()=>{
+      const pos = marker.getLatLng();
+      marker.dragging.disable(); // робимо нерухомим
+
+      const finalPopup = `
+        <div class="custom-popup">
+          ${imagesHTML}
+          <div><b>User:</b> ${username}</div>
+          ${desc ? `<div class="desc">${desc}</div>` : ''}
+          ${phone ? `<div class="phone">Phone: ${phone}</div>` : ''}
+          ${tags.length ? `<div class="coords">Теги: ${tags.join(' ')}</div>` : ``}
+          <div class="coords">Coords: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}</div>
+        </div>`;
+      marker.setPopupContent(finalPopup);
+
+      await saveMarkerData(pos.lat, pos.lng, desc, phone, photoBase64, userId, tags);
+    });
+  });
+
+  closeForm();
+}
+
+/* --- Видалення маркера --- */
 async function removeSelectedMarker() {
-if (!selectedMarker) { alert("Select a marker first!"); return; }
-const pos = selectedMarker.getLatLng();
-const res = await fetch('/markers', {
-method: 'DELETE',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId })
-});
+  if (!selectedMarker) { alert("Select a marker first!"); return; }
+  const pos = selectedMarker.getLatLng();
+  const res = await fetch('/markers', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat: pos.lat, lng: pos.lng, userId })
+  });
 
-const result = await res.json();
-if (result.status === 'deleted') {
-map.removeLayer(selectedMarker);
-markers = markers.filter(m => m !== selectedMarker);
-selectedMarker = null;
-} else if (result.status === 'forbidden') {
-alert("❌ Ви не можете видалити не свій маркер!");
-} else {
-alert("Маркер не знайдено.");
-}
+  const result = await res.json();
+  if (result.status === 'deleted') {
+    map.removeLayer(selectedMarker);
+    markers = markers.filter(m => m.leaflet !== selectedMarker);
+    selectedMarker = null;
+  } else if (result.status === 'forbidden') {
+    alert("❌ Ви не можете видалити не свій маркер!");
+  } else {
+    alert("Маркер не знайдено.");
+  }
 }
 
-// --- Пошук ---
+/* --- Пошук у верхньому інпуті --- */
 async function handleSearch(e){
-if(e.key !== "Enter") return;
-const q = document.getElementById('search').value.trim();
-if(!q) return;
-try {
-const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
-const data = await res.json();
-if (data.length > 0) {
-const { lat, lon } = data[0];
-map.setView([parseFloat(lat), parseFloat(lon)], 12);
-} else {
-alert("Place not found!");
-}
-} catch (err) {
-console.error(err);
-alert("Search error.");
-}
+  if(e.key !== "Enter") return;
+  const q = document.getElementById('search').value.trim();
+  if(!q) return;
+  try {
+    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (data.length > 0) {
+      const { lat, lon } = data[0];
+      map.setView([parseFloat(lat), parseFloat(lon)], 12);
+    } else {
+      alert("Place not found!");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Search error.");
+  }
 }
 
-// --- Відкрити мої маркери ---
+/* --- Відкрити мої маркери --- */
 async function openMyMarkers() {
   document.getElementById("myMarkersMenu").style.display = "flex";
   const res = await fetch("/markers");
@@ -352,7 +454,7 @@ async function openMyMarkers() {
 
   my.forEach((m, index)=>{
     const btn = document.createElement("button");
-    btn.innerText = `${index+1}. ${m.desc || "No description"} (${m.lat.toFixed(3)}, ${m.lng.toFixed(3)})`;
+    btn.innerText = `${index+1}. ${m.desc || "No description"} (${parseFloat(m.lat).toFixed(3)}, ${parseFloat(m.lng).toFixed(3)})`;
     btn.onclick = ()=>myMarkerAction(m);
     list.appendChild(btn);
   });
@@ -362,7 +464,7 @@ function closeMyMarkers(){
   document.getElementById("myMarkersMenu").style.display = "none";
 }
 
-// --- Дії з моїм маркером ---
+/* --- Дії з моїм маркером --- */
 function myMarkerAction(markerData){
   const confirmBox = document.createElement("div");
   confirmBox.style.position = "fixed";
@@ -412,8 +514,127 @@ function myMarkerAction(markerData){
   document.body.appendChild(confirmBox);
 }
 
-// --- Завантаження маркерів при старті ---
+/* ---------- Логіка повноекранного пошуку/фільтрів ---------- */
+
+let areaBBox = null; // {lat, lon, display, zoom}
+function setAreaBadge(text){
+  const badge = document.getElementById('areaBadge');
+  if (text) {
+    badge.textContent = text;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+/* Знайти область за Country/City/District через ваш /search */
+async function locateArea(){
+  const parts = [];
+  const c = document.getElementById('modalCountry').value.trim();
+  const city = document.getElementById('modalCity').value.trim();
+  const d = document.getElementById('modalDistrict').value.trim();
+  if (d) parts.push(d);
+  if (city) parts.push(city);
+  if (c) parts.push(c);
+  const q = parts.join(', ');
+  if (!q) { alert('Введіть хоча б країну або місто'); return; }
+  try{
+    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!data.length) { alert('Нічого не знайдено'); return; }
+    const place = data[0];
+    const lat = parseFloat(place.lat);
+    const lon = parseFloat(place.lon);
+    areaBBox = { lat, lon, display: place.display_name, zoom: place.type === 'city' ? 12 : 10 };
+    map.flyTo([lat, lon], areaBBox.zoom);
+    setAreaBadge(place.display_name);
+    runFilterIfReady();
+  }catch(e){
+    console.error(e);
+    alert('Помилка пошуку області');
+  }
+}
+
+function getActiveTags(){
+  return Array.from(document.querySelectorAll('.item-chip.active')).map(ch => ch.textContent.toLowerCase());
+}
+
+/* Виконати фільтр, якщо вибрана область або теги */
+function runFilterIfReady(){
+  const tags = getActiveTags();
+  const resBox = document.getElementById('resultsBox');
+  resBox.innerHTML = '';
+
+  if (!areaBBox) {
+    resBox.innerHTML = '<div>Спочатку знайдіть область (країна/місто/район).</div>';
+    return;
+  }
+  if (!tags.length) {
+    resBox.innerHTML = '<div>Оберіть хоча б одну річ (тег).</div>';
+    return;
+  }
+
+  // фільтруємо маркери за тегами і близькістю (~20 км від центру області)
+  const MAX_DIST_KM = 20;
+  const list = [];
+  markers.forEach(mObj=>{
+    const m = mObj.data;
+    const mTags = (m.tags || []).map(t => t.toLowerCase());
+    const hasTag = tags.some(t => mTags.includes(t) || (m.desc||'').toLowerCase().includes(t));
+    if (!hasTag) return;
+    const dist = haversine(areaBBox.lat, areaBBox.lon, m.lat, m.lng);
+    if (dist <= MAX_DIST_KM) {
+      list.push({ ...m, dist });
+    }
+  });
+
+  if (!list.length){
+    resBox.innerHTML = '<div>У вибраній області таких речей поки не знайдено.</div>';
+    return;
+  }
+
+  list.sort((a,b)=>a.dist-b.dist);
+
+  list.forEach((m,i)=>{
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML = `
+      <div>
+        <div><b>${(m.desc||'Без опису').slice(0,120)}</b></div>
+        <div class="badge">${(m.tags||[]).join(' ') || '—'}</div>
+        <div style="font-size:12px;color:#2e7d32;">${m.dist.toFixed(1)} км · ${parseFloat(m.lat).toFixed(3)}, ${parseFloat(m.lng).toFixed(3)}</div>
+      </div>
+      <div>
+        <button onclick='jumpToMarker(${m.lat}, ${m.lng})'>Показати на карті</button>
+      </div>`;
+    resBox.appendChild(row);
+  });
+}
+
+function jumpToMarker(lat, lng){
+  map.flyTo([lat, lng], 16);
+  // знайти існуючий маркер та відкрити попап
+  const found = markers.find(m => Math.abs(m.data.lat - lat) < 1e-8 && Math.abs(m.data.lng - lng) < 1e-8);
+  if (found) {
+    found.leaflet.openPopup();
+  }
+  closeSettings();
+}
+
+/* Відстань між координатами (км) */
+function haversine(lat1, lon1, lat2, lon2) {
+  const toRad = d => d*Math.PI/180;
+  const R = 6371;
+  const dLat = toRad(lat2-lat1);
+  const dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
+/* --- Завантаження маркерів при старті --- */
+renderItemChips();
 loadMarkersFromServer();
-</script>
-</body>  
+  </script>
+</body>
 </html>
