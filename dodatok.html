@@ -14,9 +14,41 @@ body, html { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; bac
 #search-wrapper img { position:absolute; top:50%; left:12px; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; }  
 #search { width:100%; padding:12px 18px 12px 56px; border:1px solid #1b5e20; border-radius:9999px; background:#e8f5e9; color:#1b5e20; font-size:16px; outline:none; }  
 #search::placeholder { color:#66bb6a; }  
-#menu { position:fixed; bottom:0; width:100%; background:#2e7d32; padding:15px 0; display:flex; justify-content:center; gap:30px; z-index:1000; }  
+
+/* Меню внизу */  
+#menu {  
+  position: fixed;  
+  bottom: 0;  
+  width: 100%;  
+  background: #2e7d32;  
+  padding: 15px 0;  
+  display: flex;  
+  flex-direction: column;  
+  align-items: center;  
+  gap: 10px;  
+  z-index: 1000;  
+}  
+.menu-row {  
+  display: flex;  
+  gap: 30px;  
+}  
 button { padding:12px 30px; border-radius:8px; background:#388e3c; color:#fff; border:none; cursor:pointer; font-size:16px; font-weight:bold; }  
 button:hover { background:#1b5e20; }  
+#myMarkersBtn {  
+  width: 90%;  
+  padding: 15px;  
+  border-radius: 8px;  
+  background: #388e3c;  
+  color: #fff;  
+  border: none;  
+  cursor: pointer;  
+  font-size: 16px;  
+  font-weight: bold;  
+}  
+#myMarkersBtn:hover {  
+  background: #1b5e20;  
+}  
+
 #markerForm { position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#e8f5e9; padding:20px; border-radius:10px; display:none; flex-direction:column; gap:12px; width:300px; z-index:2000; color:#1b5e20; font-weight:bold; }  
 #markerForm input, #markerForm textarea { width:100%; padding:10px; border:none; border-radius:6px; background:#c8e6c9; color:#1b5e20; }  
 #markerForm button { padding:10px; border-radius:6px; border:none; background:#388e3c; color:#fff; cursor:pointer; }  
@@ -68,10 +100,14 @@ button:hover { background:#1b5e20; }
   </div>  
 </div>  
 <div id="map-container"><div id="map"></div></div>  
+
+<!-- Меню -->  
 <div id="menu">  
-  <button onclick="openForm()">Add Marker</button>  
-  <button onclick="removeSelectedMarker()">Remove Marker</button>  
-  <button onclick="openMyMarkers()">My Markers</button>  
+  <div class="menu-row">
+    <button onclick="openForm()">Add Marker</button>  
+    <button onclick="removeSelectedMarker()">Remove Marker</button>  
+  </div>
+  <button id="myMarkersBtn" onclick="openMyMarkers()">My Markers</button>  
 </div>  
 
 <div id="markerForm">  
@@ -192,7 +228,7 @@ markers.push(marker);
 });
 }
 
-// --- Створення нового маркера (спочатку рухається, потім фіксується) ---
+// --- Створення нового маркера ---
 function createDraggableMarker(){
 const username = document.getElementById('username').value.trim();
 const desc = document.getElementById('desc').value.trim();
@@ -230,10 +266,9 @@ const popupContent = `
   marker.on("click",()=>selectedMarker=marker);  
   markers.push(marker);  
 
-  // коли користувач відпустить маркер  
   marker.on("dragend", async ()=>{  
       const pos = marker.getLatLng();  
-      marker.dragging.disable(); // робимо нерухомим  
+      marker.dragging.disable();  
 
       const finalPopup = `  
       <div class="custom-popup">  
