@@ -63,6 +63,39 @@ app.get('/search', async (req, res) => {
   }
 });
 
+// --- API для фільтрації маркерів ---
+app.post('/filter-markers', (req, res) => {
+  const { country, city, district, itemTag } = req.body;
+  if (!fs.existsSync(markersFile)) return res.json([]);
+
+  let markers = JSON.parse(fs.readFileSync(markersFile));
+
+  let filtered = markers;
+
+  if (country) {
+    filtered = filtered.filter(m => 
+      m.country && m.country.toLowerCase().includes(country.toLowerCase())
+    );
+  }
+  if (city) {
+    filtered = filtered.filter(m => 
+      m.city && m.city.toLowerCase().includes(city.toLowerCase())
+    );
+  }
+  if (district) {
+    filtered = filtered.filter(m => 
+      m.district && m.district.toLowerCase().includes(district.toLowerCase())
+    );
+  }
+  if (itemTag) {
+    filtered = filtered.filter(m => 
+      m.itemTag && m.itemTag.toLowerCase().includes(itemTag.toLowerCase())
+    );
+  }
+
+  res.json(filtered);
+});
+
 // --- Головна сторінка ---
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'hhh.html'));
